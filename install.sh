@@ -1,26 +1,35 @@
 #!/bin/sh
-set -e
+set -eu
 KARL_SHELL_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$KARL_SHELL_DIR/lib/common.sh"
 
 require_system_cmd git
 require_system_cmd curl
 
-BASHRC_ORIG="/tmp/karl-shell.bashrc.orig"
+snapshot_bashrc
+log "snapshotted .bashrc to $KARL_SHELL_SNAPSHOT"
 
-cp "$HOME/.bashrc" "$BASHRC_ORIG"
-log "snapshotted .bashrc to $BASHRC_ORIG"
+do_install() {
+    _name="$1"
+    if "is_installed_$_name"; then
+        log "$_name already installed, skipping"
+    else
+        log "installing $_name"
+        "install_$_name"
+        if "is_installed_$_name"; then
+            log "$_name installed"
+        else
+            err "$_name reported success but is_installed_$_name is still false"
+            exit 1
+        fi
+    fi
+}
 
-for module in "$KARL_SHELL_DIR"/modules/*.sh; do
-    . "$module"
-    "install_$(basename "$module" .sh)"
-done
+for_each_module do_install "$KARL_SHELL_DIR"
 
-cp "$BASHRC_ORIG" "$HOME/.bashrc"
-{
-    echo ''
-    echo '[ -f ~/.karl-shell/shell.sh ] && . ~/.karl-shell/shell.sh'
-} >> "$HOME/.bashrc"
+# Discard anything an installer appended, then write our one block.
+restore_bashrc
+write_footprint "$HOME/.bashrc"
 
 log "done — .bashrc reset to original + karl-shell footprint"
-exec bash -l
+reload_shell
