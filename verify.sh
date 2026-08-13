@@ -1,13 +1,32 @@
 #!/bin/sh
 # Round-trip check: install -> all modules present -> uninstall -> all gone,
-# and ~/.bashrc byte-identical to where it started. Run before adding modules.
+# rc files byte-identical to their footprint-free state, and no stray files
+# left anywhere under $HOME.
 set -eu
 KARL_SHELL_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$KARL_SHELL_DIR/lib/common.sh"
 
-SNAP="$(mktemp)"
-trap 'rm -f "$SNAP"' EXIT
-cp "$HOME/.bashrc" "$SNAP"
+remove_footprint "$HOME/.bashrc"
+
+SNAPDIR="$(mktemp -d)"
+HOMELIST="$SNAPDIR/home.before"
+trap 'rm -rf "$SNAPDIR"' EXIT
+
+for f in $KARL_SHELL_RC_FILES; do
+    [ -f "$f" ] && cp "$f" "$SNAPDIR/$(basename "$f")"
+done
+
+# Full inventory of $HOME, excluding paths karl-shell doesn't own.
+inventory() {
+    find "$HOME" \
+        -path "$HOME/.karl-shell" -prune -o \
+        -path "$HOME/.vscode-server" -prune -o \
+        -path "$HOME/.bash_history" -prune -o \
+        -path "$HOME/.lesshst" -prune -o \
+        -path "$HOME/projects" -prune -o \
+        -print 2>/dev/null | sort
+}
+inventory > "$HOMELIST"
 
 assert_state() {
     _want="$1"
@@ -42,12 +61,29 @@ log '=== uninstall again (idempotency) ==='
 KARL_SHELL_NO_EXEC=1 "$KARL_SHELL_DIR/uninstall.sh"
 assert_state absent
 
-if diff -q "$SNAP" "$HOME/.bashrc" >/dev/null; then
-    log 'ok: ~/.bashrc byte-identical to pre-install state'
+_fail=0
+
+for f in $KARL_SHELL_RC_FILES; do
+    _b="$(basename "$f")"
+    if [ -f "$SNAPDIR/$_b" ]; then
+        if diff -q "$SNAPDIR/$_b" "$f" >/dev/null 2>&1; then
+            log "ok: ~/$_b byte-identical to pre-install state"
+        else
+            err "FAIL: ~/$_b differs from pre-install state"
+            diff "$SNAPDIR/$_b" "$f" || true
+            _fail=1
+        fi
+    fi
+done
+
+log '=== stray files left in $HOME ==='
+if inventory | diff "$HOMELIST" - > "$SNAPDIR/home.diff"; then
+    log 'ok: no stray files'
 else
-    err 'FAIL: ~/.bashrc differs from pre-install state'
-    diff "$SNAP" "$HOME/.bashrc" || true
-    exit 1
+    err 'FAIL: $HOME differs after uninstall'
+    cat "$SNAPDIR/home.diff"
+    _fail=1
 fi
 
+[ "$_fail" -eq 0 ] || exit 1
 log 'ALL CHECKS PASSED'

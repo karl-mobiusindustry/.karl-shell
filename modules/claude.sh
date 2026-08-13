@@ -1,22 +1,14 @@
 #!/bin/sh
 # Claude Code CLI: native installer. Creates a launcher symlink at
 # ~/.local/bin/claude pointing into ~/.local/share/claude/versions/.
-# Verified on 2.1.228: writes nothing to .bashrc/.profile/.zshrc.
+# Verified on 2.1.231: writes nothing to .bashrc/.profile/.zshrc.
 #
 # The installer owns the launcher symlink and repoints it on auto-update.
 # This module must not replace it — a custom launcher makes Claude Code keep
 # every installed version on disk forever, since it can't tell which one runs.
-#
-# ~/.claude and ~/.claude.json are created by the installer (verified: deleted
-# both, ran a full install/uninstall cycle, both returned), so uninstall removes
-# them.
 
 _claude_bin_dir="$HOME/.local/bin"
 _claude_bin="$_claude_bin_dir/claude"
-_claude_share="$HOME/.local/share/claude"
-_claude_state="$HOME/.local/state/claude"
-_claude_config="$HOME/.claude"
-_claude_config_json="$HOME/.claude.json"
 
 install_claude() {
     require_system_cmd curl
@@ -25,10 +17,11 @@ install_claude() {
 
 uninstall_claude() {
     rm -f "$_claude_bin"
-    rm -rf "$_claude_share"
-    rm -rf "$_claude_state"
-    rm -rf "$_claude_config"
-    rm -f "$_claude_config_json"
+    rm -rf "$HOME/.local/share/claude"
+    rm -rf "$HOME/.local/state/claude"
+    rm -rf "$HOME/.claude" "$HOME/.claude.json"
+    rm -rf "$HOME/.cache/claude" "$HOME/.cache/claude-cli-nodejs"
+    rm -f "$HOME/.local/share/applications/claude-code-url-handler.desktop"
     log "claude removed"
 }
 

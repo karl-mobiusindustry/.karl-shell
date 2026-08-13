@@ -6,8 +6,8 @@ KARL_SHELL_DIR="$(cd "$(dirname "$0")" && pwd)"
 require_system_cmd git
 require_system_cmd curl
 
-snapshot_bashrc
-log "snapshotted .bashrc to $KARL_SHELL_SNAPSHOT"
+snapshot_rc_files
+log "snapshotted rc files to $KARL_SHELL_SNAPDIR"
 
 do_install() {
     _name="$1"
@@ -27,9 +27,8 @@ do_install() {
 
 for_each_module do_install "$KARL_SHELL_DIR"
 
-# Discard anything an installer appended, then write our one block.
-restore_bashrc
+restore_rc_files
 write_footprint "$HOME/.bashrc"
 
-log "done — .bashrc reset to original + karl-shell footprint"
+log "done — rc files reset to original + karl-shell footprint"
 reload_shell

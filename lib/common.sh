@@ -4,7 +4,8 @@
 
 KARL_SHELL_BEGIN='# >>> karl-shell >>>'
 KARL_SHELL_END='# <<< karl-shell <<<'
-KARL_SHELL_SNAPSHOT="/tmp/karl-shell.bashrc.$(id -u).orig"
+KARL_SHELL_RC_FILES="$HOME/.bashrc $HOME/.profile"
+KARL_SHELL_SNAPDIR="/tmp/karl-shell.snapshot.$(id -u)"
 
 log() { echo "[karl-shell] $*"; }
 err() { echo "[karl-shell] ERROR: $*" >&2; }
@@ -26,18 +27,23 @@ path_prepend() {
     esac
 }
 
-# Backstop against third-party installers that edit shell config despite our
-# opt-out flags. Whatever they append is discarded at the end of install.
-snapshot_bashrc() {
-    [ -f "$HOME/.bashrc" ] || : > "$HOME/.bashrc"
-    cp "$HOME/.bashrc" "$KARL_SHELL_SNAPSHOT"
+snapshot_rc_files() {
+    rm -rf "$KARL_SHELL_SNAPDIR"
+    mkdir -p "$KARL_SHELL_SNAPDIR"
+    for _sf in $KARL_SHELL_RC_FILES; do
+        [ -f "$_sf" ] && cp "$_sf" "$KARL_SHELL_SNAPDIR/$(basename "$_sf")"
+    done
 }
 
-restore_bashrc() {
-    [ -f "$KARL_SHELL_SNAPSHOT" ] || return 0
-    cp "$KARL_SHELL_SNAPSHOT" "$HOME/.bashrc"
-    rm -f "$KARL_SHELL_SNAPSHOT"
+restore_rc_files() {
+    [ -d "$KARL_SHELL_SNAPDIR" ] || return 0
+    for _sf in $KARL_SHELL_RC_FILES; do
+        _sn="$KARL_SHELL_SNAPDIR/$(basename "$_sf")"
+        [ -f "$_sn" ] && cp "$_sn" "$_sf"
+    done
+    rm -rf "$KARL_SHELL_SNAPDIR"
 }
+
 
 # Remove the karl-shell sentinel block from a shell rc file, if present.
 # Idempotent: removing when absent is a no-op.

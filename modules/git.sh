@@ -16,6 +16,8 @@ uninstall_git() {
     git config --global --unset user.name  || true
     git config --global --unset user.email || true
     git config --global --unset color.ui   || true
+    # --unset leaves an empty file behind; skel has no .gitconfig.
+    [ -f "$HOME/.gitconfig" ] && [ ! -s "$HOME/.gitconfig" ] && rm -f "$HOME/.gitconfig"
     log "git config reverted"
 }
 
