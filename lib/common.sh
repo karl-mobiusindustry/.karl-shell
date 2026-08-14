@@ -94,6 +94,12 @@ for_each_module() {
         (
             . "$_fem_dir/lib/common.sh"
             . "$_fem_module"
+            for _fem_fn in install uninstall is_installed shell; do
+                command -v "${_fem_fn}_$_fem_name" >/dev/null 2>&1 || {
+                    err "$(basename "$_fem_module"): missing ${_fem_fn}_$_fem_name"
+                    exit 1
+                }
+            done
             "$_fem_action" "$_fem_name"
         ) || return 1
     done
