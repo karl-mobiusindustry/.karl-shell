@@ -5,10 +5,10 @@ KARL_SHELL_DIR="$HOME/.karl-shell"
 
 [ -r "$KARL_SHELL_DIR/lib/common.sh" ] && . "$KARL_SHELL_DIR/lib/common.sh"
 
-for _ks_module in "$KARL_SHELL_DIR"/modules/*.sh; do
+for _ks_module in $(LC_ALL=C ls "$KARL_SHELL_DIR"/modules/*.sh 2>/dev/null); do
     [ -r "$_ks_module" ] || continue
     . "$_ks_module"
-    _ks_name="$(basename "$_ks_module" .sh)"
+    _ks_name="$(module_name "$_ks_module")"
     if "is_installed_$_ks_name" 2>/dev/null; then
         "shell_$_ks_name" 2>/dev/null
     fi

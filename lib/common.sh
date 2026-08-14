@@ -27,6 +27,8 @@ path_prepend() {
     esac
 }
 
+# Backstop against third-party installers that edit shell config despite our
+# opt-out flags. Whatever they append is discarded at the end of install.
 snapshot_rc_files() {
     rm -rf "$KARL_SHELL_SNAPDIR"
     mkdir -p "$KARL_SHELL_SNAPDIR"
@@ -44,9 +46,6 @@ restore_rc_files() {
     rm -rf "$KARL_SHELL_SNAPDIR"
 }
 
-
-# Remove the karl-shell sentinel block from a shell rc file, if present.
-# Idempotent: removing when absent is a no-op.
 remove_footprint() {
     _cf_file="$1"
     [ -f "$_cf_file" ] || return 0
@@ -54,7 +53,6 @@ remove_footprint() {
     sed -i "\%^$KARL_SHELL_BEGIN\$%,\%^$KARL_SHELL_END\$%d" "$_cf_file"
 }
 
-# Write the sentinel block, replacing any prior copy first.
 write_footprint() {
     _cf_file="$1"
     remove_footprint "$_cf_file"
@@ -65,22 +63,34 @@ write_footprint() {
     } >> "$_cf_file"
 }
 
-# Re-exec into a login shell so modules are live in the same terminal.
-# Test harnesses set KARL_SHELL_NO_EXEC=1 to stay in control.
 reload_shell() {
     [ -n "${KARL_SHELL_NO_EXEC:-}" ] && return 0
     exec bash -l
 }
 
-# Iterate modules in sorted order, invoking `$1 <name>` for each.
-# Each module is sourced and invoked inside a subshell so modules cannot
-# clobber one another's variables or leak state into the driver.
+# Module files may carry an optional NN_ prefix to force ordering. The prefix
+# is stripped to derive the contract function names, so 01_cargo.sh defines
+# install_cargo, not install_01_cargo. Renumbering is a rename, nothing more.
+module_name() {
+    basename "$1" .sh | sed 's/^[0-9][0-9]*_//'
+}
+
+# Modules in LC_ALL=C order: digits sort before letters, so prefixed modules
+# run first and unprefixed ones keep their alphabetical order after them.
+# Pass "reverse" to iterate backwards — required for uninstall, so a module
+# is never torn down before the modules that depend on it.
 for_each_module() {
     _fem_action="$1"
     _fem_dir="$2"
-    for _fem_module in "$_fem_dir"/modules/*.sh; do
+    _fem_order="${3:-forward}"
+    _fem_list="$(LC_ALL=C ls "$_fem_dir"/modules/*.sh 2>/dev/null)"
+    [ -n "$_fem_list" ] || return 0
+    if [ "$_fem_order" = "reverse" ]; then
+        _fem_list="$(printf '%s\n' "$_fem_list" | LC_ALL=C sort -r)"
+    fi
+    for _fem_module in $_fem_list; do
         [ -r "$_fem_module" ] || continue
-        _fem_name="$(basename "$_fem_module" .sh)"
+        _fem_name="$(module_name "$_fem_module")"
         (
             . "$_fem_dir/lib/common.sh"
             . "$_fem_module"

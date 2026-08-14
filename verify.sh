@@ -16,7 +16,6 @@ for f in $KARL_SHELL_RC_FILES; do
     [ -f "$f" ] && cp "$f" "$SNAPDIR/$(basename "$f")"
 done
 
-# Full inventory of $HOME, excluding paths karl-shell doesn't own.
 inventory() {
     find "$HOME" \
         -path "$HOME/.karl-shell" -prune -o \
@@ -30,8 +29,8 @@ inventory > "$HOMELIST"
 
 assert_state() {
     _want="$1"
-    for _m in "$KARL_SHELL_DIR"/modules/*.sh; do
-        _n="$(basename "$_m" .sh)"
+    for _m in $(LC_ALL=C ls "$KARL_SHELL_DIR"/modules/*.sh 2>/dev/null); do
+        _n="$(module_name "$_m")"
         if ( . "$KARL_SHELL_DIR/lib/common.sh"; . "$_m"; "is_installed_$_n" ); then
             _got=installed
         else
@@ -44,6 +43,11 @@ assert_state() {
         log "ok: $_n is $_got"
     done
 }
+
+log '=== module order ==='
+for _m in $(LC_ALL=C ls "$KARL_SHELL_DIR"/modules/*.sh 2>/dev/null); do
+    log "  $(basename "$_m")  ->  $(module_name "$_m")"
+done
 
 log '=== install ==='
 KARL_SHELL_NO_EXEC=1 "$KARL_SHELL_DIR/install.sh"

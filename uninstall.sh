@@ -17,7 +17,8 @@ do_uninstall() {
     fi
 }
 
-for_each_module do_uninstall "$KARL_SHELL_DIR"
+# Reverse order: dependents are torn down before their dependencies.
+for_each_module do_uninstall "$KARL_SHELL_DIR" reverse
 
 remove_footprint "$HOME/.bashrc"
 log ".bashrc footprint removed"
