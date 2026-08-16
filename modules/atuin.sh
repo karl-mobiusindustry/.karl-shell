@@ -52,6 +52,6 @@ shell_atuin() {
     path_prepend "$_atuin_bin_dir"
     # init needs atuin on PATH; call by absolute path so ordering can't bite.
     if [ -n "${BASH_VERSION:-}" ] && [ -x "$_atuin_bin" ]; then
-        eval "$("$_atuin_bin" init bash)"
+        eval "$("$_atuin_bin" init bash --disable-up-arrow)"
     fi
 }
